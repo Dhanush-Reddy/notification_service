@@ -9,7 +9,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.template import NotificationTemplate
 from app.repositories.notification_repo import NotificationRepository
 from app.repositories.preference_repo import PreferenceRepository
 from app.schemas.notification import PRIORITY_MAP, NotificationCreate
@@ -55,11 +54,7 @@ class NotificationService:
         body = payload.body
         subject = payload.subject
 
-        if payload.template_id:
-            body, subject = await self._resolve_template(
-                payload.template_id, channel, payload.variables or {}
-            )
-        elif payload.variables:
+        if payload.variables:
             body = template_service.render(body, payload.variables)
 
         priority = PRIORITY_MAP[payload.priority]
@@ -70,7 +65,7 @@ class NotificationService:
                 user_id=payload.user_id,
                 channel=channel,
                 priority=priority,
-                template_id=payload.template_id,
+                template_id=None,
                 subject=subject,
                 body=body,
                 idempotency_key=idem_key,
@@ -85,19 +80,3 @@ class NotificationService:
         await self.notif_repo.mark_queued(notif.id)
         return notif
 
-    async def _resolve_template(
-        self, template_id: str, channel: str, variables: dict[str, Any]
-    ) -> tuple[str, str | None]:
-        result = await self.session.execute(
-            select(NotificationTemplate).where(
-                NotificationTemplate.id == template_id,
-                NotificationTemplate.channel == channel,
-            )
-        )
-        tmpl = result.scalar_one_or_none()
-        if tmpl is None:
-            raise ValueError(f"Template '{template_id}' not found for channel '{channel}'")
-
-        body = template_service.render(tmpl.body, variables)
-        subject = template_service.render(tmpl.subject, variables) if tmpl.subject else None
-        return body, subject

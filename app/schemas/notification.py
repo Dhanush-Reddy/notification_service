@@ -15,7 +15,6 @@ class NotificationCreate(BaseModel):
     user_id: str
     channels: list[str] = Field(..., min_length=1)
     priority: str = "normal"
-    template_id: str | None = None
     subject: str | None = None
     body: str
     variables: dict[str, Any] | None = None
@@ -59,7 +58,6 @@ class NotificationDetail(BaseModel):
     status: str
     subject: str | None
     body: str
-    template_id: str | None
     retry_count: int
     sent_at: datetime | None
     delivered_at: datetime | None
