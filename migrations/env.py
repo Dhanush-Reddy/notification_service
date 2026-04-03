@@ -7,12 +7,16 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.database import Base
+from app.config import settings
 # import all models so their tables are registered on Base.metadata
 import app.models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Override the url dynamically so it honors the env var on Render
+config.set_main_option("sqlalchemy.url", settings.async_database_url)
 
 target_metadata = Base.metadata
 
