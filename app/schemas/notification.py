@@ -25,21 +25,20 @@ class NotificationCreate(BaseModel):
     @field_validator("channels")
     @classmethod
     def validate_channels(cls, v: list[str]) -> list[str]:
-        invalid = set(v) - VALID_CHANNELS
-        if invalid:
-            raise ValueError(f"Invalid channel(s): {invalid}. Must be one of {VALID_CHANNELS}")
+        bad = set(v) - VALID_CHANNELS
+        if bad:
+            raise ValueError(f"Unknown channel(s): {bad}. Allowed: {VALID_CHANNELS}")
         return v
 
     @field_validator("priority")
     @classmethod
     def validate_priority(cls, v: str) -> str:
         if v not in PRIORITY_MAP:
-            raise ValueError(f"priority must be one of {list(PRIORITY_MAP.keys())}")
+            raise ValueError(f"priority must be one of {list(PRIORITY_MAP)}")
         return v
 
 
 class NotificationQueued(BaseModel):
-    """Returned on 202 — notification accepted for processing."""
     id: uuid.UUID
     channel: str
     status: str

@@ -23,7 +23,6 @@ async def list_user_notifications(
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
 ):
-    """Paginated notification history for a user."""
     if page < 1 or limit < 1 or limit > 100:
         raise HTTPException(status_code=400, detail="Invalid pagination params")
 
@@ -53,10 +52,6 @@ async def set_preference(
     payload: PreferenceUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Upsert a channel preference for a user.
-
-    Creates the preference row if it doesn't exist, updates it if it does.
-    """
     repo = PreferenceRepository(db)
     pref = await repo.upsert(userId, payload.channel, payload.is_enabled)
     await db.commit()

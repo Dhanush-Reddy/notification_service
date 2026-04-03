@@ -29,11 +29,6 @@ async def send_notification(
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):
-    """Accept a notification request and queue it for async delivery.
-
-    Returns 202 Accepted — the notification is queued, not yet sent.
-    A single request may produce multiple notification records (one per channel).
-    """
     svc = NotificationService(db, redis)
     try:
         notifications = await svc.send(payload)
@@ -49,7 +44,7 @@ async def send_notification(
     if not notifications:
         raise HTTPException(
             status_code=422,
-            detail="No notifications were queued — user has opted out of all requested channels.",
+            detail="All requested channels are opted out for this user.",
         )
 
     return NotificationCreateResponse(

@@ -13,6 +13,10 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+# TIMESTAMPTZ doesn't exist as a standalone symbol in modern SQLAlchemy;
+# use TIMESTAMP(timezone=True) which generates the same DDL on PostgreSQL.
+_TSTZ = sa.TIMESTAMP(timezone=True)
+
 
 def upgrade() -> None:
     op.create_table(
@@ -27,24 +31,14 @@ def upgrade() -> None:
         sa.Column("body", sa.Text(), nullable=False),
         sa.Column("idempotency_key", sa.String(255), nullable=True, unique=True),
         sa.Column("retry_count", sa.SmallInteger(), nullable=False, server_default="0"),
-        sa.Column("next_retry_at", postgresql.TIMESTAMPTZ(), nullable=True),
-        sa.Column("sent_at", postgresql.TIMESTAMPTZ(), nullable=True),
-        sa.Column("delivered_at", postgresql.TIMESTAMPTZ(), nullable=True),
-        sa.Column("failed_at", postgresql.TIMESTAMPTZ(), nullable=True),
+        sa.Column("next_retry_at", _TSTZ, nullable=True),
+        sa.Column("sent_at", _TSTZ, nullable=True),
+        sa.Column("delivered_at", _TSTZ, nullable=True),
+        sa.Column("failed_at", _TSTZ, nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("metadata", postgresql.JSONB(), nullable=True),
-        sa.Column(
-            "created_at",
-            postgresql.TIMESTAMPTZ(),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
-        sa.Column(
-            "updated_at",
-            postgresql.TIMESTAMPTZ(),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
+        sa.Column("created_at", _TSTZ, nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", _TSTZ, nullable=False, server_default=sa.text("now()")),
         sa.CheckConstraint(
             "status IN ('pending', 'queued', 'sent', 'delivered', 'failed')",
             name="ck_notifications_status",
@@ -66,18 +60,8 @@ def upgrade() -> None:
         sa.Column("user_id", sa.String(255), nullable=False),
         sa.Column("channel", sa.String(50), nullable=False),
         sa.Column("is_enabled", sa.Boolean(), nullable=False, server_default="true"),
-        sa.Column(
-            "created_at",
-            postgresql.TIMESTAMPTZ(),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
-        sa.Column(
-            "updated_at",
-            postgresql.TIMESTAMPTZ(),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
+        sa.Column("created_at", _TSTZ, nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", _TSTZ, nullable=False, server_default=sa.text("now()")),
         sa.UniqueConstraint("user_id", "channel", name="uq_user_preferences_user_channel"),
         sa.CheckConstraint(
             "channel IN ('email', 'sms', 'push')",
@@ -93,12 +77,7 @@ def upgrade() -> None:
         sa.Column("channel", sa.String(50), nullable=False),
         sa.Column("subject", sa.Text(), nullable=True),
         sa.Column("body", sa.Text(), nullable=False),
-        sa.Column(
-            "created_at",
-            postgresql.TIMESTAMPTZ(),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
+        sa.Column("created_at", _TSTZ, nullable=False, server_default=sa.text("now()")),
         sa.CheckConstraint(
             "channel IN ('email', 'sms', 'push')",
             name="ck_templates_channel",

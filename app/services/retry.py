@@ -1,22 +1,13 @@
 import random
-import logging
-
-logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
-_BASE_DELAY = 5      # seconds
-_MAX_DELAY = 300     # cap at 5 minutes
+_BASE = 5      # seconds
+_CAP = 300     # 5 min ceiling
 
 
 def compute_next_retry(attempt: int) -> float:
-    """Exponential backoff with ±25% jitter.
-
-    attempt is 0-indexed — so first retry uses attempt=0.
-    Returns delay in seconds before next attempt.
-    """
-    exp = min(_MAX_DELAY, _BASE_DELAY * (2 ** attempt))
-    jitter = random.uniform(0, exp * 0.25)
-    return exp + jitter
+    delay = min(_CAP, _BASE * (2 ** attempt))
+    return delay + random.uniform(0, delay * 0.25)
 
 
 def should_retry(retry_count: int) -> bool:

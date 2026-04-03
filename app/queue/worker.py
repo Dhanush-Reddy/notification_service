@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import logging
 import uuid
@@ -17,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 async def run_worker(redis: aioredis.Redis) -> None:
-    """Main worker loop — drains the priority queue and dispatches notifications."""
     logger.info("Worker started, polling every %.1fs", settings.worker_poll_interval)
     while True:
         try:
@@ -33,7 +30,6 @@ async def run_worker(redis: aioredis.Redis) -> None:
             logger.info("Worker shutting down")
             raise
         except Exception:
-            # don't let an unexpected error kill the worker loop
             logger.exception("Unexpected error in worker loop")
             await asyncio.sleep(1)
 
@@ -48,7 +44,6 @@ async def _process(notification_id: str, redis: aioredis.Redis) -> None:
             return
 
         if notif.status == "failed":
-            # was marked failed elsewhere (e.g. manual override) — skip
             return
 
         provider = get_provider(notif.channel)
@@ -56,35 +51,18 @@ async def _process(notification_id: str, redis: aioredis.Redis) -> None:
             await provider.send(notif)
             await repo.mark_sent(notif.id)
             await session.commit()
-            logger.info("Sent notification %s via %s", notif.id, notif.channel)
+            logger.info("Sent %s via %s", notif.id, notif.channel)
 
         except Exception as exc:
-            logger.warning(
-                "Provider failed for notification %s: %s", notification_id, exc
-            )
-            await _handle_failure(notif, exc, repo, redis, session)
+            logger.warning("Provider error for %s: %s", notification_id, exc)
+            if not should_retry(notif.retry_count):
+                await repo.mark_failed(notif.id, str(exc))
+                await session.commit()
+                logger.error("Notification %s failed permanently after %d retries", notif.id, notif.retry_count)
+                return
 
-
-async def _handle_failure(notif, error, repo, redis, session) -> None:
-    if not should_retry(notif.retry_count):
-        await repo.mark_failed(notif.id, str(error))
-        await session.commit()
-        logger.error(
-            "Notification %s permanently failed after %d retries",
-            notif.id,
-            notif.retry_count,
-        )
-        return
-
-    delay = compute_next_retry(notif.retry_count)
-    await repo.schedule_retry(notif.id, delay)
-    await session.commit()
-
-    await requeue_after_delay(str(notif.id), notif.priority, delay, redis)
-    logger.info(
-        "Scheduled retry %d/%d for notification %s in %.1fs",
-        notif.retry_count,
-        MAX_RETRIES,
-        notif.id,
-        delay,
-    )
+            delay = compute_next_retry(notif.retry_count)
+            await repo.schedule_retry(notif.id, delay)
+            await session.commit()
+            await requeue_after_delay(str(notif.id), notif.priority, delay, redis)
+            logger.info("Retry %d/%d for %s in %.1fs", notif.retry_count, MAX_RETRIES, notif.id, delay)
